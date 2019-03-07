@@ -37,10 +37,13 @@ import Feedback from '../components/Feedback';
 class IDEView extends React.Component {
   constructor(props) {
     super(props);
-    this._handleConsolePaneOnDragFinished = this._handleConsolePaneOnDragFinished.bind(this);
-    this._handleSidebarPaneOnDragFinished = this._handleSidebarPaneOnDragFinished.bind(this);
     this.handleGlobalKeydown = this.handleGlobalKeydown.bind(this);
     this.warnIfUnsavedChanges = this.warnIfUnsavedChanges.bind(this);
+
+    this.state = {
+      consoleSize: props.ide.consoleIsExpanded ? 150 : 29,
+      sidebarSize: props.ide.sidebarIsExpanded ? 160 : 20
+    };
   }
 
   componentDidMount() {
@@ -55,10 +58,6 @@ class IDEView extends React.Component {
         this.props.getProject(id);
       }
     }
-
-    this.consoleSize = this.props.ide.consoleIsExpanded ? 150 : 29;
-    this.sidebarSize = this.props.ide.sidebarIsExpanded ? 160 : 20;
-    this.forceUpdate();
 
     this.isMac = navigator.userAgent.toLowerCase().indexOf('mac') !== -1;
     document.addEventListener('keydown', this.handleGlobalKeydown, false);
@@ -75,17 +74,17 @@ class IDEView extends React.Component {
     if (nextProps.location !== this.props.location) {
       this.props.setPreviousPath(this.props.location.pathname);
     }
-  }
 
-  componentWillUpdate(nextProps) {
     if (this.props.ide.consoleIsExpanded !== nextProps.ide.consoleIsExpanded) {
-      this.consoleSize = nextProps.ide.consoleIsExpanded ? 150 : 29;
+      this.setState({ consoleSize: nextProps.ide.consoleIsExpanded ? 150 : 29 });
     }
 
     if (this.props.ide.sidebarIsExpanded !== nextProps.ide.sidebarIsExpanded) {
-      this.sidebarSize = nextProps.ide.sidebarIsExpanded ? 160 : 20;
+      this.setState({ sidebarSize: nextProps.ide.sidebarIsExpanded ? 160 : 20 });
     }
+  }
 
+  componentWillUpdate(nextProps) {
     if (nextProps.params.project_id && !this.props.params.project_id) {
       if (nextProps.params.project_id !== nextProps.project.id) {
         this.props.getProject(nextProps.params.project_id);
@@ -127,28 +126,10 @@ class IDEView extends React.Component {
     document.removeEventListener('keydown', this.handleGlobalKeydown, false);
     clearTimeout(this.autosaveInterval);
     this.autosaveInterval = null;
-    this.consoleSize = undefined;
-    this.sidebarSize = undefined;
   }
 
   isUserOwner() {
     return this.props.project.owner && this.props.project.owner.id === this.props.user.id;
-  }
-
-  _handleConsolePaneOnDragFinished() {
-    this.consoleSize = this.consolePane.state.draggedSize;
-    this.consolePane.setState({
-      resized: false,
-      draggedSize: undefined,
-    });
-  }
-
-  _handleSidebarPaneOnDragFinished() {
-    this.sidebarSize = this.sidebarPane.state.draggedSize;
-    this.sidebarPane.setState({
-      resized: false,
-      draggedSize: undefined
-    });
   }
 
   handleGlobalKeydown(e) {
@@ -212,30 +193,7 @@ class IDEView extends React.Component {
           warnIfUnsavedChanges={this.warnIfUnsavedChanges}
           cmController={this.cmController}
         />
-        <Toolbar
-          className="Toolbar"
-          isPlaying={this.props.ide.isPlaying}
-          stopSketch={this.props.stopSketch}
-          projectName={this.props.project.name}
-          setProjectName={this.props.setProjectName}
-          showEditProjectName={this.props.showEditProjectName}
-          hideEditProjectName={this.props.hideEditProjectName}
-          openPreferences={this.props.openPreferences}
-          preferencesIsVisible={this.props.ide.preferencesIsVisible}
-          setTextOutput={this.props.setTextOutput}
-          setGridOutput={this.props.setGridOutput}
-          setSoundOutput={this.props.setSoundOutput}
-          owner={this.props.project.owner}
-          project={this.props.project}
-          infiniteLoop={this.props.ide.infiniteLoop}
-          autorefresh={this.props.preferences.autorefresh}
-          setAutorefresh={this.props.setAutorefresh}
-          startSketch={this.props.startSketch}
-          startAccessibleSketch={this.props.startAccessibleSketch}
-          saveProject={this.props.saveProject}
-          currentUser={this.props.user.username}
-          showHelpModal={this.props.showHelpModal}
-        />
+        <Toolbar />
         {this.props.ide.preferencesIsVisible &&
           <Overlay
             title="Settings"
@@ -268,8 +226,8 @@ class IDEView extends React.Component {
         <div className="editor-preview-container">
           <SplitPane
             split="vertical"
-            defaultSize={this.sidebarSize}
-            ref={(element) => { this.sidebarPane = element; }}
+            size={this.state.sidebarSize}
+            onChange={size => this.setState({ sidebarSize: size })}
             onDragFinished={this._handleSidebarPaneOnDragFinished}
             allowResize={this.props.ide.sidebarIsExpanded}
             minSize={20}
@@ -298,10 +256,9 @@ class IDEView extends React.Component {
               <SplitPane
                 split="horizontal"
                 primary="second"
-                defaultSize={this.consoleSize}
+                size={this.state.consoleSize}
                 minSize={29}
-                ref={(element) => { this.consolePane = element; }}
-                onDragFinished={this._handleConsolePaneOnDragFinished}
+                onChange={size => this.setState({ consoleSize: size })}
                 allowResize={this.props.ide.consoleIsExpanded}
                 className="editor-preview-subpanel"
               >
@@ -547,8 +504,6 @@ IDEView.propTypes = {
     }),
     updatedAt: PropTypes.string
   }).isRequired,
-  setProjectName: PropTypes.func.isRequired,
-  openPreferences: PropTypes.func.isRequired,
   editorAccessibility: PropTypes.shape({
     lintMessages: PropTypes.array.isRequired,
   }).isRequired,
@@ -604,8 +559,6 @@ IDEView.propTypes = {
   collapseConsole: PropTypes.func.isRequired,
   deleteFile: PropTypes.func.isRequired,
   updateFileName: PropTypes.func.isRequired,
-  showEditProjectName: PropTypes.func.isRequired,
-  hideEditProjectName: PropTypes.func.isRequired,
   openProjectOptions: PropTypes.func.isRequired,
   closeProjectOptions: PropTypes.func.isRequired,
   newFolder: PropTypes.func.isRequired,
@@ -627,7 +580,6 @@ IDEView.propTypes = {
   route: PropTypes.oneOfType([PropTypes.object, PropTypes.element]).isRequired,
   setUnsavedChanges: PropTypes.func.isRequired,
   setTheme: PropTypes.func.isRequired,
-  setAutorefresh: PropTypes.func.isRequired,
   endSketchRefresh: PropTypes.func.isRequired,
   startRefreshSketch: PropTypes.func.isRequired,
   setBlobUrl: PropTypes.func.isRequired,
@@ -641,12 +593,10 @@ IDEView.propTypes = {
   hideErrorModal: PropTypes.func.isRequired,
   clearPersistedState: PropTypes.func.isRequired,
   persistState: PropTypes.func.isRequired,
-  showHelpModal: PropTypes.func.isRequired,
   hideHelpModal: PropTypes.func.isRequired,
   showRuntimeErrorWarning: PropTypes.func.isRequired,
   hideRuntimeErrorWarning: PropTypes.func.isRequired,
   startSketch: PropTypes.func.isRequired,
-  startAccessibleSketch: PropTypes.func.isRequired
 };
 
 function mapStateToProps(state) {
